@@ -46,11 +46,13 @@ pipeline {
                     echo 'Stage 3: Cleanup Old Container'
                     echo '========================================='
                     
-                    // Stop and remove old container if exists
-                    bat """
-                        docker stop ${CONTAINER_NAME} 2>nul || echo Container not running
-                        docker rm ${CONTAINER_NAME} 2>nul || echo Container not found
-                    """
+                    // Stop and remove old container if exists (suppress errors)
+                    bat '''
+                        @echo off
+                        docker stop hyperserve-container 2>nul
+                        docker rm hyperserve-container 2>nul
+                        exit /b 0
+                    '''
                     echo '✓ Old container cleaned up'
                 }
             }
@@ -112,7 +114,12 @@ pipeline {
                     // Try to access the service
                     echo 'Testing service endpoint...'
                     sleep 2
-                    bat "curl -f http://localhost:${HOST_PORT}/ || echo Service check completed"
+                    
+                    // Use PowerShell to test HTTP endpoint (more reliable than curl on Windows)
+                    bat """
+                        @echo off
+                        powershell -Command "try { Invoke-WebRequest -Uri http://localhost:${HOST_PORT}/ -UseBasicParsing -TimeoutSec 5 | Select-Object -ExpandProperty Content } catch { Write-Host 'Service test completed' }"
+                    """
                     
                     echo '✓ Service is listening on port ' + HOST_PORT
                 }
@@ -157,11 +164,13 @@ pipeline {
             echo '========================================='
             echo 'Check the console output above for errors'
             
-            // Cleanup on failure
-            bat """
-                docker stop ${CONTAINER_NAME} 2>nul || echo No container to stop
-                docker rm ${CONTAINER_NAME} 2>nul || echo No container to remove
-            """
+            // Cleanup on failure (suppress errors)
+            bat '''
+                @echo off
+                docker stop hyperserve-container 2>nul
+                docker rm hyperserve-container 2>nul
+                exit /b 0
+            '''
         }
         always {
             echo ''
